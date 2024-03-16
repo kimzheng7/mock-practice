@@ -1,4 +1,5 @@
 import random
+print("gl with mock")
 
 while True:
     stock_width = random.randint(1, 10)
