@@ -9,15 +9,25 @@ def handler(a, b):
     sys.exit(0)
 
 if __name__ == "__main__":
+    multi_stock_flag = False
+    if len(sys.argv) > 1:
+        multi_stock_flag = True
     signal.signal(signal.SIGALRM, handler) 
     signal.alarm(120)
 
+    stock_width = random.randint(1, 10)
+    uneven = random.randint(0, 1)
+    stock_price = random.randint(3000, 10000)
+    stock_market = [(stock_price - stock_width) / 100, (stock_price + stock_width + uneven) / 100]
+    rc = random.randint(1, 10) / 100
+
     while True:
-        stock_width = random.randint(1, 10)
-        uneven = random.randint(0, 1)
-        stock_price = random.randint(3000, 10000)
-        stock_market = [(stock_price - stock_width) / 100, (stock_price + stock_width + uneven) / 100]
-        rc = random.randint(1, 10) / 100
+        if multi_stock_flag:
+            stock_width = random.randint(1, 10)
+            uneven = random.randint(0, 1)
+            stock_price = random.randint(3000, 10000)
+            stock_market = [(stock_price - stock_width) / 100, (stock_price + stock_width + uneven) / 100]
+            rc = random.randint(1, 10) / 100
 
         mid_strike_index = int(stock_price // 500)
         strikes = [5 * i for i in range(mid_strike_index - 2, mid_strike_index + 3)]
@@ -50,4 +60,5 @@ if __name__ == "__main__":
             if math.isclose(float(price_guess), price_correct) and dir_guess == dir_correct:
                 correct = True
 
+        print()
         successes += 1
