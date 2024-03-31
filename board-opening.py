@@ -13,6 +13,16 @@ def black_scholes(S, K, T, r, sigma, option='call'):
     if option == 'put':
         return K * math.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
 
+def get_impact(curr_state):
+    if curr_state == "eq":
+        impact = random.randint(50, 100) / 100
+    if curr_state == "lu" or curr_state == "ld":
+        impact = random.randint(100, 250) / 100
+    if curr_state == "hu" or curr_state == "hd":
+        impact = random.randint(250, 500) / 100
+    
+    return impact
+
 def get_liquidity(curr_state):
     if curr_state == "eq":
         volume = random.randint(100, 200)
@@ -52,8 +62,9 @@ if __name__ == "__main__":
         [0.1 / 4, 0.1 / 4, 0.1 / 4, 0.2, 0.7]]
     curr_state = np.random.choice(states, p = initial_prob_vector)
     
+    impact_per_hundred = get_impact(curr_state)
     stock_width = get_width(curr_state) / 100
-    volume = get_liquidity(curr_state)
+    liquidity = get_liquidity(curr_state)
     uneven = random.randint(0, 1) / 100
     stock_market = [round(stock_price - stock_width, 2), round(stock_price + stock_width + uneven, 2)]
 
@@ -86,7 +97,7 @@ if __name__ == "__main__":
     # opening the actual board (displaying)
     window = tk.Tk()
     stock_text = tk.Label(text="{} @ {}".format(stock_market[0], stock_market[1]))
-    liquidity_text = tk.Label(text="{}x by {}x".format(volume, volume))
+    liquidity_text = tk.Label(text="{}x by {}x".format(liquidity, liquidity))
     rc_text = tk.Label(text="r/c = {}".format(rc))
     stock_text.pack()
     liquidity_text.pack()
@@ -163,20 +174,30 @@ if __name__ == "__main__":
     theos_button.pack()
 
     # order handling and generation
+    incoming_order_frame = tk.Frame()
+    incoming_order_frame.pack()
+    check_label = tk.Label(text="", master=incoming_order_frame)
+    combo_bid_entry = tk.Entry(master=incoming_order_frame, width=5)
+    combo_offer_entry = tk.Entry(master=incoming_order_frame, width=5)
+    submit_market_button = tk.Button(master=incoming_order_frame)
+
     def new_order():
         strike = random.randchoice(strikes)
-
-        impact = random.randint(1, 20) / 100
-        volume = int(impact * 100 * 30)
+        volume = random.randint(1, 10) * 50
+        check_label["text"] = "can I get a market for {} of the {} combos".format(volume, strike)
+        combo_bid_entry.pack(side=tk.LEFT)
+        combo_offer_entry.pack(side=tk.LEFT)
+        submit_market_button.pack(side=tk.LEFT)
+        
+    def submit_market():
 
     def stock_test():
         pass
 
-
-    incoming_order_frame = tk.Frame()
-    incoming_order_frame.pack()
     new_order_button = tk.Button(text="New Order", master=incoming_order_frame)
     new_order_button.pack(side=tk.LEFT)
+    check_label.pack(side=tk.LEFT)
+
     pass_order_button = tk.Button(text="Pass", master=incoming_order_frame)
     pass_order_button.pack(side=tk.LEFT)
     execute_order_button = tk.Button(text="Execute", master=incoming_order_frame)
