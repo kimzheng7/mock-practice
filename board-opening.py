@@ -13,6 +13,20 @@ def black_scholes(S, K, T, r, sigma, option='call'):
     if option == 'put':
         return K * math.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
 
+def next_state(curr_state, states, transition_matrix):
+    if curr_state == "eq":
+        i = 0
+    if curr_state == "lu":
+        i = 1
+    if curr_state == "ld":
+        i = 2
+    if curr_state == "hu":
+        i = 3
+    if curr_state == "hd":
+        i = 4
+
+    return np.random.choice(states, p = transition_matrix[i])
+
 def get_impact(curr_state):
     if curr_state == "eq":
         impact = random.randint(50, 100) / 100
@@ -174,33 +188,48 @@ if __name__ == "__main__":
     theos_button.pack()
 
     # order handling and generation
+    first_order = False
     incoming_order_frame = tk.Frame()
     incoming_order_frame.pack()
     check_label = tk.Label(text="", master=incoming_order_frame)
     combo_bid_entry = tk.Entry(master=incoming_order_frame, width=5)
     combo_offer_entry = tk.Entry(master=incoming_order_frame, width=5)
-    submit_market_button = tk.Button(master=incoming_order_frame)
+    
+    def submit_market():
+        check_label["text"] = ""
+        combo_bid_entry.pack_forget()
+        combo_offer_entry.pack_forget()
+        submit_market_button.pack_forget()
+
+    submit_market_button = tk.Button(text="Submit Market", master=incoming_order_frame, command=submit_market)
 
     def new_order():
-        strike = random.randchoice(strikes)
+        if not first_order:
+            curr_state = next_state(curr_state, states, transition_matrix)
+        else:
+            first_order = not first_order
+            
+        strike = random.choice(strikes)
         volume = random.randint(1, 10) * 50
-        check_label["text"] = "can I get a market for {} of the {} combos".format(volume, strike)
+        check_label["text"] = "Can I get a market for {} of the {} combos".format(volume, strike)
+
+        impacted_stock_price += (impact_per_hundred / 100) * (volume / 100)        
+
         combo_bid_entry.pack(side=tk.LEFT)
         combo_offer_entry.pack(side=tk.LEFT)
         submit_market_button.pack(side=tk.LEFT)
-        
-    def submit_market():
+
+    new_order_button = tk.Button(text="New Order", master=incoming_order_frame, command=new_order)    
 
     def stock_test():
         pass
 
-    new_order_button = tk.Button(text="New Order", master=incoming_order_frame)
     new_order_button.pack(side=tk.LEFT)
     check_label.pack(side=tk.LEFT)
 
-    pass_order_button = tk.Button(text="Pass", master=incoming_order_frame)
+    pass_order_button = tk.Button(text="Pass")
     pass_order_button.pack(side=tk.LEFT)
-    execute_order_button = tk.Button(text="Execute", master=incoming_order_frame)
+    execute_order_button = tk.Button(text="Execute")
     execute_order_button.pack(side=tk.LEFT)
 
     resting_orders = []
