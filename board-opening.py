@@ -39,20 +39,20 @@ def get_impact(curr_state):
 
 def get_liquidity(curr_state):
     if curr_state == "eq":
-        volume = random.randint(100, 200)
+        volume = random.randint(5, 10) * 20
     if curr_state == "lu" or curr_state == "ld":
-        volume = random.randint(50, 150)
+        volume = random.randint(3, 8) * 20
     if curr_state == "hu" or curr_state == "hd":
-        volume = random.randint(20, 100)
+        volume = random.randint(1, 5) * 20
     return volume
 
 def get_width(curr_state):
     if curr_state == "eq":
-        width = random.randint(1, 5)
+        width = random.randint(1, 3)
     if curr_state == "lu" or curr_state == "ld":
-        width = random.randint(3, 10)
+        width = random.randint(2, 5)
     if curr_state == "hu" or curr_state == "hd":
-        width = random.randint(8, 15)
+        width = random.randint(4, 10)
     return width
 
 if __name__ == "__main__":
@@ -70,15 +70,15 @@ if __name__ == "__main__":
     initial_prob_vector = [0.1, 0.9 / 4, 0.9 / 4, 0.9 / 4, 0.9 / 4]
     transition_matrix = [
         [0.7, 0.3 / 4, 0.3 / 4, 0.3 / 4, 0.3 / 4], 
-        [0.1 / 4, 0.6, 0.3, 0.1 / 4, 0.1 / 4], 
-        [0.1 / 4, 0.3, 0.6, 0.1 / 4, 0.1 / 4], 
-        [0.1 / 4, 0.1 / 4, 0.1 / 4, 0.7, 0.2], 
-        [0.1 / 4, 0.1 / 4, 0.1 / 4, 0.2, 0.7]]
+        [0.1 / 3, 0.6, 0.3, 0.1 / 3, 0.1 / 3], 
+        [0.1 / 3, 0.3, 0.6, 0.1 / 3, 0.1 / 3], 
+        [0.1 / 3, 0.1 / 3, 0.1 / 3, 0.7, 0.2], 
+        [0.1 / 3, 0.1 / 3, 0.1 / 3, 0.2, 0.7]]
     curr_state = np.random.choice(states, p = initial_prob_vector)
     
     impact_per_hundred = get_impact(curr_state)
     stock_width = get_width(curr_state) / 100
-    liquidity = get_liquidity(curr_state)
+    liquidity = [get_liquidity(curr_state), get_liquidity(curr_state)]
     uneven = random.randint(0, 1) / 100
     stock_market = [round(stock_price - stock_width, 2), round(stock_price + stock_width + uneven, 2)]
 
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     # opening the actual board (displaying)
     window = tk.Tk()
     stock_text = tk.Label(text="{} @ {}".format(stock_market[0], stock_market[1]))
-    liquidity_text = tk.Label(text="{}x by {}x".format(liquidity, liquidity))
+    liquidity_text = tk.Label(text="{}x by {}x".format(liquidity[0], liquidity[1]))
     rc_text = tk.Label(text="r/c = {}".format(rc))
     stock_text.pack()
     liquidity_text.pack()
@@ -189,51 +189,196 @@ if __name__ == "__main__":
 
     # order handling and generation
     first_order = False
+    resting_orders = []
+    resting_orders_buttons = []
+    cust_level = None
+    cust_direction = None
+    volume = None
+    strike = None
+    puts_over = None
     incoming_order_frame = tk.Frame()
     incoming_order_frame.pack()
     check_label = tk.Label(text="", master=incoming_order_frame)
     combo_bid_entry = tk.Entry(master=incoming_order_frame, width=5)
     combo_offer_entry = tk.Entry(master=incoming_order_frame, width=5)
-    
-    def submit_market():
+
+    def execute_order():
         check_label["text"] = ""
+        pass_order_button.pack_forget()
+        execute_order_button.pack_forget()
+        new_order_button.pack()
+
+    def pass_order():
+        resting_order_label = tk.Label()
+        if (cust_direction == "bid" and not puts_over) or (cust_direction == "offer" and puts_over):
+            resting_order_label["text"] = "Cust is bid {} for {} of the {} combos".format(cust_level, volume, strike)
+        else:
+            resting_order_label["text"] = "Cust offers {} of the {} combos at {}".format(volume, strike, cust_level)
+
+        resting_orders.append(resting_order_label)
+        def execute_resting():
+            resting_order_label.pack_forget()
+            resting_orders.remove(resting_order_label)
+            execute_resting_button.pack_forget()
+            resting_orders_buttons.remove(execute_resting_button)
+        execute_resting_button = tk.Button(text="Execute", command=execute_resting)
+        resting_orders_buttons.append(execute_resting_button)
+        execute_order()
+
+    pass_order_button = tk.Button(text="Pass", master=incoming_order_frame, command=pass_order)
+    execute_order_button = tk.Button(text="Execute", master=incoming_order_frame, command=execute_order)
+
+    def submit_market():
+        global cust_level
+        global cust_direction
+        global puts_over
+        
+        combo_market = [float(combo_bid_entry.get()), float(combo_offer_entry.get())]
+        combo_bid_entry.delete(0, tk.END)
+        combo_offer_entry.delete(0, tk.END)
+
         combo_bid_entry.pack_forget()
         combo_offer_entry.pack_forget()
         submit_market_button.pack_forget()
+        willingness = random.randint(1, 5) / 100
+        if cust_direction == "bid":
+            cust_level = round(impacted_stock_price + willingness - strike + rc, 2)
+        if cust_direction == "offer":
+            cust_level = round(impacted_stock_price - willingness - strike + rc, 2)
+        
+        puts_over = cust_level < 0
+        if puts_over:
+            cust_level = - cust_level
+
+        if (cust_direction == "bid" and not puts_over) or (cust_direction == "offer" and puts_over):
+            if cust_level >= combo_market[1]:
+                check_label["text"] = "Customer lifts your offer"
+                execute_order_button.pack(side=tk.LEFT)
+            else:
+                check_label["text"] = "Customer is bid {}".format(cust_level)
+                pass_order_button.pack(side=tk.LEFT)
+                execute_order_button.pack(side=tk.LEFT)
+        if (cust_direction == "offer" and not puts_over) or (cust_direction == "bid" and puts_over):
+            if cust_level <= combo_market[0]:
+                check_label["text"] = "Customer hits your bid"
+                execute_order_button.pack(side=tk.LEFT)
+            else:
+                check_label["text"] = "Customer is offered {}".format(cust_level)
+                pass_order_button.pack(side=tk.LEFT)
+                execute_order_button.pack(side=tk.LEFT)
 
     submit_market_button = tk.Button(text="Submit Market", master=incoming_order_frame, command=submit_market)
 
     def new_order():
+        global first_order
+        global curr_state
+        global cust_direction
+        global impact_per_hundred
+        global impacted_stock_price
+        global volume
+        global strike
+
         if not first_order:
+            prev_state = curr_state
             curr_state = next_state(curr_state, states, transition_matrix)
+            if curr_state != prev_state:
+                impact_per_hundred = get_impact(curr_state)
         else:
             first_order = not first_order
-            
+
         strike = random.choice(strikes)
         volume = random.randint(1, 10) * 50
         check_label["text"] = "Can I get a market for {} of the {} combos".format(volume, strike)
 
-        impacted_stock_price += (impact_per_hundred / 100) * (volume / 100)        
+        if curr_state == "lu" or curr_state == "hu" or (curr_state == "eq" and random.choice([True, False])):
+            impacted_stock_price += (impact_per_hundred / 100) * (volume / 100)
+            cust_direction = "bid"       
+        if curr_state == "ld" or curr_state == "hd" or curr_state == "eq":
+            impacted_stock_price -= (impact_per_hundred / 100) * (volume / 100) 
+            cust_direction = "offer"
+
+        print(impacted_stock_price)
 
         combo_bid_entry.pack(side=tk.LEFT)
         combo_offer_entry.pack(side=tk.LEFT)
         submit_market_button.pack(side=tk.LEFT)
+        new_order_button.pack_forget()
 
     new_order_button = tk.Button(text="New Order", master=incoming_order_frame, command=new_order)    
-
-    def stock_test():
-        pass
 
     new_order_button.pack(side=tk.LEFT)
     check_label.pack(side=tk.LEFT)
 
-    pass_order_button = tk.Button(text="Pass")
-    pass_order_button.pack(side=tk.LEFT)
-    execute_order_button = tk.Button(text="Execute")
-    execute_order_button.pack(side=tk.LEFT)
+    def stock_test_buy_sell(buy):
+        def stock_test():
+            global stock_price
+            global stock_width
+            global liquidity
+            global uneven
+            global stock_market
 
-    resting_orders = []
+            # if volume is sufficient, then refresh according to state
+            stock_test_price = float(stock_test_price_entry.get())
+            stock_test_volume = float(stock_test_volume_entry.get()) // 100
+            stock_test_price_entry.delete(0, tk.END)
+            stock_test_volume_entry.delete(0, tk.END)
+
+            if (buy and (stock_test_price < stock_market[1])) or (not buy and (stock_test_price > stock_market[0])):
+                stock_test_feedback["text"] = "Filled on 0."
+                return
+            if (buy and stock_test_volume < liquidity[1]) or (not buy and stock_test_volume < liquidity[0]):
+                stock_test_feedback["text"] = "Filled on {}.".format(stock_test_volume * 100)
+                if (buy and stock_test_volume < liquidity[1]):
+                    liquidity[1] -= stock_test_volume
+                if (not buy and stock_test_volume < liquidity[0]):
+                    liquidity[0] -= stock_test_volume
+                liquidity_text["text"] = "{}x by {}x".format(liquidity[0], liquidity[1])
+                return
+            
+            stock_price = impacted_stock_price
+            stock_width = get_width(curr_state) / 100
+            liquidity = [get_liquidity(curr_state), get_liquidity(curr_state)]
+            uneven = random.randint(0, 1) / 100
+            filled_amt = 
+
+            stock_market = [round(stock_price - stock_width, 2), round(stock_price + stock_width + uneven, 2)]
+            stock_text["text"] = "{} @ {}".format(stock_market[0], stock_market[1])
+            liquidity_text["text"] = "{}x by {}x".format(liquidity[0], liquidity[1])
+
+        return stock_test
+
+    stock_test_frame = tk.Frame()
+    stock_test_frame.pack()
+    stock_test_price_label = tk.Label(text="Price:", master=stock_test_frame)
+    stock_test_price_entry = tk.Entry(master=stock_test_frame)
+    stock_test_volume_label = tk.Label(text="Volume:", master=stock_test_frame)
+    stock_test_volume_entry = tk.Entry(master=stock_test_frame)
+    stock_test_bid_button = tk.Button(text="Buy Stock", master=stock_test_frame, command=stock_test_buy_sell(True))
+    stock_test_offer_button = tk.Button(text="Sell Stock", master=stock_test_frame, command=stock_test_buy_sell(False))
+    stock_test_price_label.pack(side=tk.LEFT)
+    stock_test_price_entry.pack(side=tk.LEFT)
+    stock_test_volume_label.pack(side=tk.LEFT)
+    stock_test_volume_entry.pack(side=tk.LEFT)
+    stock_test_bid_button.pack(side=tk.LEFT)
+    stock_test_offer_button.pack(side=tk.LEFT)
+    stock_test_feedback = tk.Label(text="")
+    stock_test_feedback.pack()
+
     resting_orders_showing = False
-    resting_orders_button = tk.Button(text="Show resting orders")
+    def show_resting():
+        global resting_orders_showing
+
+        for label, button in zip(resting_orders, resting_orders_buttons):
+            if not resting_orders_showing:
+                label.pack()
+                button.pack()
+            else:
+                label.pack_forget()
+                button.pack_forget()
+        resting_orders_showing = not resting_orders_showing
+
+    resting_orders_button = tk.Button(text="Show resting orders", command=show_resting)
+    resting_orders_button.pack()
+
 
     window.mainloop()
