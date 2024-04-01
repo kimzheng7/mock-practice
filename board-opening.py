@@ -55,6 +55,15 @@ def get_width(curr_state):
         width = random.randint(4, 10)
     return width
 
+def amount_on_higher_levels(curr_state):
+    if curr_state == "eq":
+        ratio = random.randint(4, 8) / 10
+    if curr_state == "lu" or curr_state == "ld":
+        ratio = random.randint(3, 7) / 10
+    if curr_state == "hu" or curr_state == "hd":
+        ratio = random.randint(1, 4) / 10
+    return ratio
+
 if __name__ == "__main__":
     # precalcs and parameter deciding
     stock_price = random.randint(3000, 10000) / 100
@@ -240,7 +249,7 @@ if __name__ == "__main__":
         combo_bid_entry.pack_forget()
         combo_offer_entry.pack_forget()
         submit_market_button.pack_forget()
-        willingness = random.randint(1, 5) / 100
+        willingness = get_width(curr_state) / 100
         if cust_direction == "bid":
             cust_level = round(impacted_stock_price + willingness - strike + rc, 2)
         if cust_direction == "offer":
@@ -297,8 +306,6 @@ if __name__ == "__main__":
             impacted_stock_price -= (impact_per_hundred / 100) * (volume / 100) 
             cust_direction = "offer"
 
-        print(impacted_stock_price)
-
         combo_bid_entry.pack(side=tk.LEFT)
         combo_offer_entry.pack(side=tk.LEFT)
         submit_market_button.pack(side=tk.LEFT)
@@ -327,7 +334,7 @@ if __name__ == "__main__":
                 stock_test_feedback["text"] = "Filled on 0."
                 return
             if (buy and stock_test_volume < liquidity[1]) or (not buy and stock_test_volume < liquidity[0]):
-                stock_test_feedback["text"] = "Filled on {}.".format(stock_test_volume * 100)
+                stock_test_feedback["text"] = "Filled on {:,}.".format(stock_test_volume * 100)
                 if (buy and stock_test_volume < liquidity[1]):
                     liquidity[1] -= stock_test_volume
                 if (not buy and stock_test_volume < liquidity[0]):
@@ -335,12 +342,19 @@ if __name__ == "__main__":
                 liquidity_text["text"] = "{}x by {}x".format(liquidity[0], liquidity[1])
                 return
             
+            if buy:
+                diff = (stock_test_price - (stock_price + stock_width)) * 100
+                filled_amt = round(amount_on_higher_levels(curr_state) * liquidity[1] * diff, - 1)
+            else:
+                diff = ((stock_price - stock_width) - stock_test_price) * 100
+                filled_amt = round(amount_on_higher_levels(curr_state) * liquidity[0] * diff, - 1)
+            filled_amt = min(filled_amt, stock_test_volume)
+            stock_test_feedback["text"] = "Filled on {:,}.".format(filled_amt * 100)
+            
             stock_price = impacted_stock_price
             stock_width = get_width(curr_state) / 100
             liquidity = [get_liquidity(curr_state), get_liquidity(curr_state)]
             uneven = random.randint(0, 1) / 100
-            filled_amt = 
-
             stock_market = [round(stock_price - stock_width, 2), round(stock_price + stock_width + uneven, 2)]
             stock_text["text"] = "{} @ {}".format(stock_market[0], stock_market[1])
             liquidity_text["text"] = "{}x by {}x".format(liquidity[0], liquidity[1])
