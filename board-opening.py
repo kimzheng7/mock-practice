@@ -29,11 +29,11 @@ def next_state(curr_state, states, transition_matrix):
 
 def get_impact(curr_state):
     if curr_state == "eq":
-        impact = random.randint(50, 100) / 100
+        impact = random.randint(1, 3)
     if curr_state == "lu" or curr_state == "ld":
-        impact = random.randint(100, 250) / 100
+        impact = random.randint(3, 6)
     if curr_state == "hu" or curr_state == "hd":
-        impact = random.randint(250, 500) / 100
+        impact = random.randint(5, 15)
     
     return impact
 
@@ -43,7 +43,7 @@ def get_liquidity(curr_state):
     if curr_state == "lu" or curr_state == "ld":
         volume = random.randint(3, 8) * 20
     if curr_state == "hu" or curr_state == "hd":
-        volume = random.randint(1, 5) * 20
+        volume = random.randint(1, 4) * 20
     return volume
 
 def get_width(curr_state):
@@ -197,19 +197,15 @@ if __name__ == "__main__":
     theos_button.pack()
 
     # order handling and generation
-    first_order = False
+    first_order = True
     resting_orders = []
     resting_orders_buttons = []
-    cust_level = None
-    cust_direction = None
-    volume = None
-    strike = None
-    puts_over = None
+    cust_order = {"structure" : None, "strike" : None, "volume" : None, "direction" : None, "level" : None, "puts_over" : None }
     incoming_order_frame = tk.Frame()
     incoming_order_frame.pack()
     check_label = tk.Label(text="", master=incoming_order_frame)
-    combo_bid_entry = tk.Entry(master=incoming_order_frame, width=5)
-    combo_offer_entry = tk.Entry(master=incoming_order_frame, width=5)
+    bid_entry = tk.Entry(master=incoming_order_frame, width=5)
+    offer_entry = tk.Entry(master=incoming_order_frame, width=5)
 
     def execute_order():
         check_label["text"] = ""
@@ -219,17 +215,15 @@ if __name__ == "__main__":
 
     def pass_order():
         resting_order_label = tk.Label()
-        if (cust_direction == "bid" and not puts_over) or (cust_direction == "offer" and puts_over):
-            resting_order_label["text"] = "Cust is bid {} for {} of the {} combos".format(cust_level, volume, strike)
-        else:
-            resting_order_label["text"] = "Cust offers {} of the {} combos at {}".format(volume, strike, cust_level)
-
+        resting_order_label["text"] = "Cust is {} {} for {} of the {} {}".format(cust_order["direction"], cust_order["level"], cust_order["volume"], cust_order["strike"], cust_order["structure"])
         resting_orders.append(resting_order_label)
+
         def execute_resting():
             resting_order_label.pack_forget()
             resting_orders.remove(resting_order_label)
             execute_resting_button.pack_forget()
             resting_orders_buttons.remove(execute_resting_button)
+
         execute_resting_button = tk.Button(text="Execute", command=execute_resting)
         resting_orders_buttons.append(execute_resting_button)
         execute_order()
@@ -238,41 +232,45 @@ if __name__ == "__main__":
     execute_order_button = tk.Button(text="Execute", master=incoming_order_frame, command=execute_order)
 
     def submit_market():
-        global cust_level
-        global cust_direction
-        global puts_over
+        global cust_order
         
-        combo_market = [float(combo_bid_entry.get()), float(combo_offer_entry.get())]
-        combo_bid_entry.delete(0, tk.END)
-        combo_offer_entry.delete(0, tk.END)
+        market = [float(bid_entry.get()), float(offer_entry.get())]
+        bid_entry.delete(0, tk.END)
+        offer_entry.delete(0, tk.END)
 
-        combo_bid_entry.pack_forget()
-        combo_offer_entry.pack_forget()
+        bid_entry.pack_forget()
+        offer_entry.pack_forget()
         submit_market_button.pack_forget()
         willingness = get_width(curr_state) / 100
-        if cust_direction == "bid":
-            cust_level = round(impacted_stock_price + willingness - strike + rc, 2)
-        if cust_direction == "offer":
-            cust_level = round(impacted_stock_price - willingness - strike + rc, 2)
-        
-        puts_over = cust_level < 0
-        if puts_over:
-            cust_level = - cust_level
+        if cust_order["direction"] == "offer":
+            willingness = -willingness
 
-        if (cust_direction == "bid" and not puts_over) or (cust_direction == "offer" and puts_over):
-            if cust_level >= combo_market[1]:
+        if cust_order["structure"] == "combos":
+            cust_order["level"] = round(impacted_stock_price + willingness - cust_order["strike"] + rc, 2)
+        elif cust_order["structure"] == "calls":
+            bw = theo_puts[0] + rc
+            cust_order["level"] = round(impacted_stock_price + willingness - cust_order["strike"] + bw, 2)
+        elif cust_order["structure"] == "puts":
+            ps = theo_calls[-1] - rc
+            cust_order["level"] = round(- impacted_stock_price + willingness + cust_order["strike"] + ps, 2)
+        
+        if cust_order["level"] < 0:
+            cust_order["level"] = - cust_order["level"]
+
+        if cust_order["direction"] == "bid":
+            if cust_order["level"] >= market[1]:
                 check_label["text"] = "Customer lifts your offer"
                 execute_order_button.pack(side=tk.LEFT)
             else:
-                check_label["text"] = "Customer is bid {}".format(cust_level)
+                check_label["text"] = "Customer is bid {}".format(cust_order["level"])
                 pass_order_button.pack(side=tk.LEFT)
                 execute_order_button.pack(side=tk.LEFT)
-        if (cust_direction == "offer" and not puts_over) or (cust_direction == "bid" and puts_over):
-            if cust_level <= combo_market[0]:
+        if cust_order["direction"] == "offer":
+            if cust_order["level"] <= market[0]:
                 check_label["text"] = "Customer hits your bid"
                 execute_order_button.pack(side=tk.LEFT)
             else:
-                check_label["text"] = "Customer is offered {}".format(cust_level)
+                check_label["text"] = "Customer is offered {}".format(cust_order["level"])
                 pass_order_button.pack(side=tk.LEFT)
                 execute_order_button.pack(side=tk.LEFT)
 
@@ -281,33 +279,49 @@ if __name__ == "__main__":
     def new_order():
         global first_order
         global curr_state
-        global cust_direction
+        global cust_order
         global impact_per_hundred
         global impacted_stock_price
-        global volume
-        global strike
 
         if not first_order:
-            prev_state = curr_state
             curr_state = next_state(curr_state, states, transition_matrix)
-            if curr_state != prev_state:
-                impact_per_hundred = get_impact(curr_state)
+            impact_per_hundred = get_impact(curr_state)
         else:
             first_order = not first_order
 
-        strike = random.choice(strikes)
-        volume = random.randint(1, 10) * 50
-        check_label["text"] = "Can I get a market for {} of the {} combos".format(volume, strike)
+        single_option = np.random.choice([True, False], p = [0.3, 0.7])
+        if single_option and np.random.choice([True, False]):
+            cust_order["structure"] = "calls"
+            cust_order["strike"] = strikes[0]
+            cust_order["puts_over"] = False
+        elif single_option:
+            cust_order["structure"] = "puts"
+            cust_order["strike"] = strikes[-1]
+            cust_order["puts_over"] = True
+        else:
+            cust_order["structure"] = "combos"
+            cust_order["strike"] = random.choice(strikes)
+            cust_order["puts_over"] = cust_order["strike"] > impacted_stock_price
 
-        if curr_state == "lu" or curr_state == "hu" or (curr_state == "eq" and random.choice([True, False])):
-            impacted_stock_price += (impact_per_hundred / 100) * (volume / 100)
-            cust_direction = "bid"       
-        if curr_state == "ld" or curr_state == "hd" or curr_state == "eq":
-            impacted_stock_price -= (impact_per_hundred / 100) * (volume / 100) 
-            cust_direction = "offer"
+        cust_order["volume"] = random.randint(1, 10) * 50
+        check_label["text"] = "Can I get a market for {} of the {} {}".format(cust_order["volume"], cust_order["strike"], cust_order["structure"])
+        upwards = curr_state == "lu" or curr_state == "hu" or (curr_state == "eq" and random.choice([True, False]))
+        
+        if upwards:
+            impacted_stock_price += (impact_per_hundred / 100) * (cust_order["volume"] / 100)
+            if cust_order["puts_over"]:
+                cust_order["direction"] = "offer"
+            else:
+                cust_order["direction"] = "bid"
+        else:
+            impacted_stock_price -= (impact_per_hundred / 100) * (cust_order["volume"] / 100) 
+            if cust_order["puts_over"]:
+                cust_order["direction"] = "bid"
+            else:
+                cust_order["direction"] = "offer"
 
-        combo_bid_entry.pack(side=tk.LEFT)
-        combo_offer_entry.pack(side=tk.LEFT)
+        bid_entry.pack(side=tk.LEFT)
+        offer_entry.pack(side=tk.LEFT)
         submit_market_button.pack(side=tk.LEFT)
         new_order_button.pack_forget()
 
