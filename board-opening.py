@@ -1,4 +1,5 @@
 from scipy.stats import norm 
+from functools import partial
 import math
 import random
 import tkinter as tk
@@ -133,6 +134,20 @@ if __name__ == "__main__":
     theos_showing = False
     starting_info_showing = False
 
+    def click_handler_l(struc, price, e):
+        empty = e.widget["text"] == ""
+        if empty and (struc == "p&s" or struc == "straddle" or struc == "cs"):
+            e.widget["text"] = "{}: {}".format(struc, price)
+        elif not empty:
+            e.widget["text"] = ""
+
+    def click_handler_r(struc, price, e):
+        empty = e.widget["text"] == ""
+        if empty and (struc == "b/w" or struc == "ps"):
+            e.widget["text"] = "{}: {}".format(struc, price)
+        elif not empty:
+            e.widget["text"] = ""
+
     def show_theos():
         global theos_showing
         for put_theo_text, call_theo_text, put_theo, call_theo in zip(put_theo_texts, call_theo_texts, theo_puts, theo_calls):
@@ -143,24 +158,8 @@ if __name__ == "__main__":
                 put_theo_text["text"] = ""
                 call_theo_text["text"] = ""
         theos_showing = not theos_showing
-    def show_starting():
-        global starting_info_showing
-        for given_info_l, given_info_r, info in zip(starting_info_texts_l, starting_info_texts_r, opening_info):
-            struc, price = info
-            if starting_info_showing:
-                given_info_l["text"] = ""
-                given_info_r["text"] = ""
-            else:
-                if struc == "p&s" or struc == "straddle" or struc == "cs":
-                    given_info_l["text"] = "{}: {}".format(struc, price)
-                    given_info_r["text"] = ""
-                if struc == "b/w" or struc == "ps":
-                    given_info_l["text"] = ""
-                    given_info_r["text"] = "{}: {}".format(struc, price)
-        starting_info_showing = not starting_info_showing
 
     theos_button = tk.Button(text="Show theos", command=show_theos)
-    starting_info_button = tk.Button(text="Hide starting", command=show_starting)
 
     for strike, info in zip(strikes, opening_info):
         struc, price = info
@@ -192,8 +191,15 @@ if __name__ == "__main__":
         starting_info_texts_l.append(given_info_l)
         starting_info_texts_r.append(given_info_r)
 
-    show_starting()
-    starting_info_button.pack()
+        if (struc == "p&s" or struc == "straddle" or struc == "cs"):
+            given_info_l["text"] = "{}: {}".format(struc, price)
+        else:
+            given_info_r["text"] = "{}: {}".format(struc, price)
+
+        given_info_l.bind("<Button-1>", partial(click_handler_l, struc, price))
+        given_info_r.bind("<Button-1>", partial(click_handler_r, struc, price))
+
+
     theos_button.pack()
 
     # order handling and generation
@@ -245,17 +251,19 @@ if __name__ == "__main__":
         if cust_order["direction"] == "offer":
             willingness = -willingness
 
-        if cust_order["structure"] == "combos":
+        if cust_order["structure"] == "combos" and not cust_order["puts_over"]:
             cust_order["level"] = round(impacted_stock_price + willingness - cust_order["strike"] + rc, 2)
+        elif cust_order["structure"] == "combos":
+            cust_order["level"] = round(- impacted_stock_price + willingness + cust_order["strike"] + rc, 2)
         elif cust_order["structure"] == "calls":
             bw = theo_puts[0] + rc
             cust_order["level"] = round(impacted_stock_price + willingness - cust_order["strike"] + bw, 2)
         elif cust_order["structure"] == "puts":
             ps = theo_calls[-1] - rc
             cust_order["level"] = round(- impacted_stock_price + willingness + cust_order["strike"] + ps, 2)
-        
-        if cust_order["level"] < 0:
-            cust_order["level"] = - cust_order["level"]
+
+        print(market)
+        print(cust_order)
 
         if cust_order["direction"] == "bid":
             if cust_order["level"] >= market[1]:
@@ -282,6 +290,8 @@ if __name__ == "__main__":
         global cust_order
         global impact_per_hundred
         global impacted_stock_price
+
+        print(impacted_stock_price)
 
         if not first_order:
             curr_state = next_state(curr_state, states, transition_matrix)
@@ -358,10 +368,10 @@ if __name__ == "__main__":
             
             if buy:
                 diff = (stock_test_price - (stock_price + stock_width)) * 100
-                filled_amt = round(amount_on_higher_levels(curr_state) * liquidity[1] * diff, - 1)
+                filled_amt = round(amount_on_higher_levels(curr_state) * liquidity[1] * diff, - 1) + liquidity[1]
             else:
                 diff = ((stock_price - stock_width) - stock_test_price) * 100
-                filled_amt = round(amount_on_higher_levels(curr_state) * liquidity[0] * diff, - 1)
+                filled_amt = round(amount_on_higher_levels(curr_state) * liquidity[0] * diff, - 1) + liquidity[0]
             filled_amt = min(filled_amt, stock_test_volume)
             stock_test_feedback["text"] = "Filled on {:,}.".format(filled_amt * 100)
             
