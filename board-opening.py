@@ -14,6 +14,18 @@ def black_scholes(S, K, T, r, sigma, option='call'):
     if option == 'put':
         return K * math.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
 
+def black_scholes_delta(S, K, T, r, sigma, option="call"):
+    d1 = (math.log(S/K) + (r + sigma**2/2)*T) / (sigma*math.sqrt(T))
+    if option == "call":
+        delta_calc = norm.cdf(d1, 0, 1)
+    elif option == "put":
+        delta_calc = -norm.cdf(-d1, 0, 1)
+    return delta_calc
+
+def get_middle_strike_with_indices(strikes):
+    strike_indices = list(sorted(np.random.choice([1, 2, 3], 2, replace = False)))
+    return (strikes[strike_indices[0]], strikes[strike_indices[1]]), strike_indices
+
 def next_state(curr_state, states, transition_matrix):
     if curr_state == "eq":
         i = 0
@@ -28,6 +40,9 @@ def next_state(curr_state, states, transition_matrix):
 
     return np.random.choice(states, p = transition_matrix[i])
 
+def get_normal_order_size():
+    return random.randint(4, 10) * 50
+
 def get_impact(curr_state):
     if curr_state == "eq":
         impact = random.randint(1, 3)
@@ -38,36 +53,41 @@ def get_impact(curr_state):
     
     return impact
 
-def get_liquidity(curr_state):
-    if curr_state == "eq":
+def get_liquidity(curr_stock_liquidity):
+    if curr_stock_liquidity == "l":
         volume = random.randint(5, 10) * 20
-    if curr_state == "lu" or curr_state == "ld":
+    if curr_stock_liquidity == "m":
         volume = random.randint(3, 8) * 20
-    if curr_state == "hu" or curr_state == "hd":
+    if curr_stock_liquidity == "h":
         volume = random.randint(1, 4) * 20
     return volume
 
-def get_width(curr_state):
-    if curr_state == "eq":
+def get_width(curr_stock_liquidity):
+    if curr_stock_liquidity == "l":
         width = random.randint(1, 3)
-    if curr_state == "lu" or curr_state == "ld":
+    if curr_stock_liquidity == "m":
         width = random.randint(2, 5)
-    if curr_state == "hu" or curr_state == "hd":
+    if curr_stock_liquidity == "h":
         width = random.randint(4, 10)
     return width
 
-def amount_on_higher_levels(curr_state):
-    if curr_state == "eq":
-        ratio = random.randint(4, 8) / 10
-    if curr_state == "lu" or curr_state == "ld":
-        ratio = random.randint(3, 7) / 10
-    if curr_state == "hu" or curr_state == "hd":
-        ratio = random.randint(1, 4) / 10
-    return ratio
+def amount_on_higher_levels(curr_stock_liquidity, diff_1, diff_2):
+    # essentially - you are trying to sus out the amount of impact there has been so you test stock
+    # if stock fills are thin, then the impact may be way larger since you havent any disconfirming evidence that you've moved stock enough
+    # whereas if stock fills are full, then the impact is around what you observe, since you've run into that disconfirming evidence that you're paying too much
+    liquidity_top_to_bottom = [get_liquidity(curr_stock_liquidity) * 5]
+    for i in range(int(diff_2) - 1):
+        liquidity_top_to_bottom.append(liquidity_top_to_bottom[-1] ** (1/2))
+
+    if diff_1 > diff_2:
+        return np.inf
+    else:
+        return sum(liquidity_top_to_bottom[-int(diff_1):])
 
 if __name__ == "__main__":
-    # precalcs and parameter deciding
+    # Section 1: Parameter deciding
     stock_price = random.randint(3000, 10000) / 100
+    ref_initial_stock = stock_price
     impacted_stock_price = stock_price
     rc = random.randint(3, 10) / 100
 
@@ -85,13 +105,16 @@ if __name__ == "__main__":
         [0.1 / 3, 0.1 / 3, 0.1 / 3, 0.7, 0.2], 
         [0.1 / 3, 0.1 / 3, 0.1 / 3, 0.2, 0.7]]
     curr_state = np.random.choice(states, p = initial_prob_vector)
+    curr_stock_liquidity = random.choice(["l", "m", "h"])
     
     impact_per_hundred = get_impact(curr_state)
-    stock_width = get_width(curr_state) / 100
-    liquidity = [get_liquidity(curr_state), get_liquidity(curr_state)]
+    normal_order_size = get_normal_order_size()
+    stock_width = get_width(curr_stock_liquidity) / 100
+    liquidity = [get_liquidity(curr_stock_liquidity), get_liquidity(curr_stock_liquidity)]
     uneven = random.randint(0, 1) / 100
     stock_market = [round(stock_price - stock_width, 2), round(stock_price + stock_width + uneven, 2)]
 
+    # Section 2: calculating option theoreticals
     mid_strike_index = int(round(stock_price / 5, 0))
     strikes = [5 * i for i in range(mid_strike_index - 2, mid_strike_index + 3)]
     dte = 30 / 365
@@ -100,9 +123,13 @@ if __name__ == "__main__":
 
     theo_calls = []
     theo_puts = []
+    theo_calls_delta = []
+    theo_puts_delta = []
     for strike in strikes:
         theo_calls.append(round(black_scholes(stock_price, strike, dte, r, sigma, option = "call"), 2))
         theo_puts.append(round(black_scholes(stock_price, strike, dte, r, sigma, option = "put"), 2))
+        theo_calls_delta.append(round(black_scholes_delta(stock_price, strike, dte, r, sigma, option = "call"), 2))
+        theo_puts_delta.append(round(black_scholes_delta(stock_price, strike, dte, r, sigma, option = "put"), 2))
 
     opening_info = []
     structures = ["b/w", "ps", "straddle", "cs", "p&s"]
@@ -247,9 +274,7 @@ if __name__ == "__main__":
         bid_entry.pack_forget()
         offer_entry.pack_forget()
         submit_market_button.pack_forget()
-        willingness = get_width(curr_state) / 100
-        if cust_order["direction"] == "offer":
-            willingness = -willingness
+        willingness = random.randint(-5, 5) / 100
 
         if cust_order["structure"] == "combos" and not cust_order["puts_over"]:
             cust_order["level"] = round(impacted_stock_price + willingness - cust_order["strike"] + rc, 2)
@@ -261,6 +286,32 @@ if __name__ == "__main__":
         elif cust_order["structure"] == "puts":
             ps = theo_calls[-1] - rc
             cust_order["level"] = round(- impacted_stock_price + willingness + cust_order["strike"] + ps, 2)
+        elif cust_order["structure"] == "risk reversal" and not cust_order["puts_over"]:
+            combo_temp = round(impacted_stock_price - cust_order["strike"][0] + rc, 2)
+            i = strikes.index(cust_order["strike"][0])
+            j = strikes.index(cust_order["strike"][1])
+            cs_temp = theo_calls[i] - theo_calls[j]
+            cs_temp += (impacted_stock_price - ref_initial_stock) * (theo_calls_delta[i] - theo_calls_delta[j])
+            cust_order["level"] = round(combo_temp - cs_temp + willingness, 2)
+        elif cust_order["structure"] == "risk reversal" and cust_order["puts_over"]:
+            combo_temp = round(impacted_stock_price - cust_order["strike"][0] + rc, 2)
+            i = strikes.index(cust_order["strike"][0])
+            j = strikes.index(cust_order["strike"][1])
+            cs_temp = theo_calls[i] - theo_calls[j]
+            cs_temp += (impacted_stock_price - ref_initial_stock) * (theo_calls_delta[i] - theo_calls_delta[j])
+            cust_order["level"] = round(cs_temp - combo_temp + willingness, 2)
+        elif cust_order["structure"] == "call spread":
+            i = strikes.index(cust_order["strike"][0])
+            j = strikes.index(cust_order["strike"][1])
+            cs_temp = theo_calls[i] - theo_calls[j]
+            cs_temp += (impacted_stock_price - ref_initial_stock) * (theo_calls_delta[i] - theo_calls_delta[j])
+            cust_order["level"] = round(cs_temp + willingness, 2)
+        elif cust_order["structure"] == "put spread":
+            i = strikes.index(cust_order["strike"][0])
+            j = strikes.index(cust_order["strike"][1])
+            ps_temp = theo_puts[j] - theo_puts[i]
+            ps_temp += (impacted_stock_price - ref_initial_stock) * (theo_calls_delta[j] - theo_calls_delta[i])
+            cust_order["level"] = round(ps_temp + willingness, 2)
 
         print(market)
         print(cust_order)
@@ -299,32 +350,65 @@ if __name__ == "__main__":
         else:
             first_order = not first_order
 
-        single_option = np.random.choice([True, False], p = [0.3, 0.7])
-        if single_option and np.random.choice([True, False]):
+        structures = ["combos", "calls", "puts", "risk reversal", "call spread", "puts spread"]
+        structure = np.random.choice(structures, p = [0.3, 0.2, 0.2, 0.2, 0.05, 0.05])
+        if structure == "calls":
             cust_order["structure"] = "calls"
             cust_order["strike"] = strikes[0]
             cust_order["puts_over"] = False
-        elif single_option:
+        elif structure == "puts":
             cust_order["structure"] = "puts"
             cust_order["strike"] = strikes[-1]
             cust_order["puts_over"] = True
-        else:
+        elif structure == "combos":
             cust_order["structure"] = "combos"
             cust_order["strike"] = random.choice(strikes)
             cust_order["puts_over"] = cust_order["strike"] > impacted_stock_price
+        elif structure == "risk reversal":
+            cust_order["structure"] = "risk reversal"
+            # determine the strike of the risky
+            mid_strikes, mid_strike_indices = get_middle_strike_with_indices(strikes)
+            cust_order["strike"] = mid_strikes
+            cust_order["puts_over"] = theo_puts[mid_strike_indices[1]] > theo_calls[mid_strike_indices[0]]
+        elif structure == "call spread":
+            cust_order["structure"] = "call spread"
+            mid_strikes, mid_strike_indices = get_middle_strike_with_indices(strikes)
+            cust_order["strike"] = mid_strikes
+            cust_order["puts_over"] = False
+        elif structure == "put spread":
+            cust_order["structure"] = "put spread"
+            mid_strikes, mid_strike_indices = get_middle_strike_with_indices(strikes)
+            cust_order["strike"] = mid_strikes
+            cust_order["puts_over"] = True
 
-        cust_order["volume"] = random.randint(1, 10) * 50
+        cust_order["volume"] = normal_order_size * random.choice([0.5, 1, 1.5])
         check_label["text"] = "Can I get a market for {} of the {} {}".format(cust_order["volume"], cust_order["strike"], cust_order["structure"])
         upwards = curr_state == "lu" or curr_state == "hu" or (curr_state == "eq" and random.choice([True, False]))
-        
+
+        # takes volume and converts to equivalent deltas of volume
+        if cust_order["structure"] == "combos" or cust_order["structure"] == "calls" or cust_order["structure"] == "puts":
+            deltas_volume = cust_order["volume"]
+        elif cust_order["structure"] == "risk reversal":
+            i = strikes.index(cust_order["strike"][0])
+            j = strikes.index(cust_order["strike"][1])
+            deltas_volume = cust_order["volume"] * (abs(theo_puts_delta[i]) + abs(theo_calls_delta[j]))
+        elif cust_order["structure"] == "call spread":
+            i = strikes.index(cust_order["strike"][0])
+            j = strikes.index(cust_order["strike"][1])
+            deltas_volume = cust_order["volume"] * (abs(theo_calls_delta[i] - theo_calls_delta[j]))
+        elif cust_order["structure"] == "put spread":
+            i = strikes.index(cust_order["strike"][0])
+            j = strikes.index(cust_order["strike"][1])
+            deltas_volume = cust_order["volume"] * (abs(theo_puts_delta[i] - theo_puts_delta[j]))
+
         if upwards:
-            impacted_stock_price += (impact_per_hundred / 100) * (cust_order["volume"] / 100)
+            impacted_stock_price += (impact_per_hundred / 100) * (deltas_volume / 100)
             if cust_order["puts_over"]:
                 cust_order["direction"] = "offer"
             else:
                 cust_order["direction"] = "bid"
         else:
-            impacted_stock_price -= (impact_per_hundred / 100) * (cust_order["volume"] / 100) 
+            impacted_stock_price -= (impact_per_hundred / 100) * (deltas_volume / 100) 
             if cust_order["puts_over"]:
                 cust_order["direction"] = "bid"
             else:
@@ -367,17 +451,19 @@ if __name__ == "__main__":
                 return
             
             if buy:
-                diff = (stock_test_price - (stock_price + stock_width)) * 100
-                filled_amt = round(amount_on_higher_levels(curr_state) * liquidity[1] * diff, - 1) + liquidity[1]
+                diff_1 = (stock_test_price - (stock_price + stock_width)) * 100
+                diff_2 = (impacted_stock_price - (stock_price + stock_width)) * 100
+                filled_amt = amount_on_higher_levels(curr_stock_liquidity, diff_1, diff_2) + liquidity[1]
             else:
-                diff = ((stock_price - stock_width) - stock_test_price) * 100
-                filled_amt = round(amount_on_higher_levels(curr_state) * liquidity[0] * diff, - 1) + liquidity[0]
+                diff_1 = ((stock_price - stock_width) - stock_test_price) * 100
+                diff_2 = ((stock_price - stock_width) - impacted_stock_price) * 100
+                filled_amt = amount_on_higher_levels(curr_stock_liquidity, diff_1, diff_2) + liquidity[0]
             filled_amt = min(filled_amt, stock_test_volume)
             stock_test_feedback["text"] = "Filled on {:,}.".format(filled_amt * 100)
             
             stock_price = impacted_stock_price
-            stock_width = get_width(curr_state) / 100
-            liquidity = [get_liquidity(curr_state), get_liquidity(curr_state)]
+            stock_width = get_width(curr_stock_liquidity) / 100
+            liquidity = [get_liquidity(curr_stock_liquidity), get_liquidity(curr_stock_liquidity)]
             uneven = random.randint(0, 1) / 100
             stock_market = [round(stock_price - stock_width, 2), round(stock_price + stock_width + uneven, 2)]
             stock_text["text"] = "{} @ {}".format(stock_market[0], stock_market[1])
