@@ -45,11 +45,11 @@ def get_normal_order_size():
 
 def get_impact(curr_state):
     if curr_state == "eq":
-        impact = random.randint(1, 3)
+        impact = random.randint(0, 2)
     if curr_state == "lu" or curr_state == "ld":
         impact = random.randint(3, 6)
     if curr_state == "hu" or curr_state == "hd":
-        impact = random.randint(5, 15)
+        impact = random.randint(7, 15)
     
     return impact
 
@@ -86,7 +86,7 @@ def amount_on_higher_levels(curr_stock_liquidity, diff_1, diff_2):
 
 if __name__ == "__main__":
     # Section 1: Parameter deciding
-    stock_price = random.randint(3000, 10000) / 100
+    stock_price = random.randint(5000, 8000) / 100
     ref_initial_stock = stock_price
     impacted_stock_price = stock_price
     rc = random.randint(3, 10) / 100
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     curr_state = np.random.choice(states, p = initial_prob_vector)
     curr_stock_liquidity = random.choice(["l", "m", "h"])
     
-    impact_per_hundred = get_impact(curr_state)
+    impact_per_normal = get_impact(curr_state)
     normal_order_size = get_normal_order_size()
     stock_width = get_width(curr_stock_liquidity) / 100
     liquidity = [get_liquidity(curr_stock_liquidity), get_liquidity(curr_stock_liquidity)]
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     strikes = [5 * i for i in range(mid_strike_index - 2, mid_strike_index + 3)]
     dte = 30 / 365
     r = math.log(1 - rc/strikes[2]) / -dte
-    sigma = random.randint(50, 70) / 100
+    sigma = random.randint(35,45) / 100
 
     theo_calls = []
     theo_puts = []
@@ -339,14 +339,14 @@ if __name__ == "__main__":
         global first_order
         global curr_state
         global cust_order
-        global impact_per_hundred
+        global impact_per_normal
         global impacted_stock_price
 
         print(impacted_stock_price)
 
         if not first_order:
             curr_state = next_state(curr_state, states, transition_matrix)
-            impact_per_hundred = get_impact(curr_state)
+            impact_per_normal = get_impact(curr_state)
         else:
             first_order = not first_order
 
@@ -402,13 +402,13 @@ if __name__ == "__main__":
             deltas_volume = cust_order["volume"] * (abs(theo_puts_delta[i] - theo_puts_delta[j]))
 
         if upwards:
-            impacted_stock_price += (impact_per_hundred / 100) * (deltas_volume / 100)
+            impacted_stock_price += (impact_per_normal / 100) * (deltas_volume / normal_order_size)
             if cust_order["puts_over"]:
                 cust_order["direction"] = "offer"
             else:
                 cust_order["direction"] = "bid"
         else:
-            impacted_stock_price -= (impact_per_hundred / 100) * (deltas_volume / 100) 
+            impacted_stock_price -= (impact_per_normal / 100) * (deltas_volume / normal_order_size) 
             if cust_order["puts_over"]:
                 cust_order["direction"] = "bid"
             else:
