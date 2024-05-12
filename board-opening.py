@@ -104,7 +104,8 @@ if __name__ == "__main__":
         [0.1 / 3, 0.3, 0.6, 0.1 / 3, 0.1 / 3], 
         [0.1 / 3, 0.1 / 3, 0.1 / 3, 0.7, 0.2], 
         [0.1 / 3, 0.1 / 3, 0.1 / 3, 0.2, 0.7]]
-    curr_state = np.random.choice(states, p = initial_prob_vector)
+    curr_state = "eq"
+    # curr_state = np.random.choice(states, p = initial_prob_vector)
     curr_stock_liquidity = random.choice(["l", "m", "h"])
     
     impact_per_normal = get_impact(curr_state)
@@ -341,8 +342,8 @@ if __name__ == "__main__":
         global impacted_stock_price
         print(impacted_stock_price)
 
-        structures = ["combos", "calls", "puts", "risk reversal", "call spread", "puts spread"]
-        structure = np.random.choice(structures, p = [0.3, 0.2, 0.2, 0.2, 0.05, 0.05])
+        structures = ["combos", "calls", "puts", "risk reversal", "call spread", "put spread"]
+        structure = np.random.choice(structures, p = [0, 0, 0, 1/3, 1/3, 1/3])
         if structure == "calls":
             cust_order["structure"] = "calls"
             cust_order["strike"] = strikes[0]
@@ -396,6 +397,8 @@ if __name__ == "__main__":
             i = strikes.index(cust_order["strike"][0])
             j = strikes.index(cust_order["strike"][1])
             deltas_volume = cust_order["volume"] * (abs(theo_puts_delta[i] - theo_puts_delta[j]))
+        else:
+            print(cust_order["structure"])
 
         if upwards:
             impacted_stock_price += (impact_per_normal / 100) * (deltas_volume / normal_order_size)
@@ -499,6 +502,5 @@ if __name__ == "__main__":
 
     resting_orders_button = tk.Button(text="Show resting orders", command=show_resting)
     resting_orders_button.pack()
-
 
     window.mainloop()
