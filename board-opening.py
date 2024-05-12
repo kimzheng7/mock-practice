@@ -47,9 +47,9 @@ def get_impact(curr_state):
     if curr_state == "eq":
         impact = random.randint(0, 2)
     if curr_state == "lu" or curr_state == "ld":
-        impact = random.randint(3, 6)
+        impact = random.randint(2, 5)
     if curr_state == "hu" or curr_state == "hd":
-        impact = random.randint(7, 15)
+        impact = random.randint(8, 15)
     
     return impact
 
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     # state 4: high impact up
     # state 5: high impact down
     states = ["eq", "lu", "ld", "hu", "hd"]
-    initial_prob_vector = [0.1, 0.9 / 4, 0.9 / 4, 0.9 / 4, 0.9 / 4]
+    initial_prob_vector = [0.3, 0.25, 0.25, 0.1, 0.1]
     transition_matrix = [
         [0.7, 0.3 / 4, 0.3 / 4, 0.3 / 4, 0.3 / 4], 
         [0.1 / 3, 0.6, 0.3, 0.1 / 3, 0.1 / 3], 
@@ -230,7 +230,6 @@ if __name__ == "__main__":
     theos_button.pack()
 
     # order handling and generation
-    first_order = True
     resting_orders = []
     resting_orders_buttons = []
     cust_order = {"structure" : None, "strike" : None, "volume" : None, "direction" : None, "level" : None, "puts_over" : None }
@@ -274,17 +273,17 @@ if __name__ == "__main__":
         bid_entry.pack_forget()
         offer_entry.pack_forget()
         submit_market_button.pack_forget()
-        willingness = random.randint(-5, 5) / 100
+        willingness = random.randint(-impact_per_normal // 2, impact_per_normal // 2) / 100
 
         if cust_order["structure"] == "combos" and not cust_order["puts_over"]:
             cust_order["level"] = round(impacted_stock_price + willingness - cust_order["strike"] + rc, 2)
         elif cust_order["structure"] == "combos":
-            cust_order["level"] = round(- impacted_stock_price + willingness + cust_order["strike"] + rc, 2)
+            cust_order["level"] = - round(impacted_stock_price + willingness - cust_order["strike"] + rc, 2)
         elif cust_order["structure"] == "calls":
-            bw = theo_puts[0] + rc
+            bw = theo_puts[0] + theo_puts_delta[0] * (impacted_stock_price - ref_initial_stock) + rc
             cust_order["level"] = round(impacted_stock_price + willingness - cust_order["strike"] + bw, 2)
         elif cust_order["structure"] == "puts":
-            ps = theo_calls[-1] - rc
+            ps = theo_calls[-1] + theo_calls_delta[-1] * (impacted_stock_price - ref_initial_stock) - rc
             cust_order["level"] = round(- impacted_stock_price + willingness + cust_order["strike"] + ps, 2)
         elif cust_order["structure"] == "risk reversal" and not cust_order["puts_over"]:
             combo_temp = round(impacted_stock_price - cust_order["strike"][0] + rc, 2)
@@ -336,19 +335,11 @@ if __name__ == "__main__":
     submit_market_button = tk.Button(text="Submit Market", master=incoming_order_frame, command=submit_market)
 
     def new_order():
-        global first_order
         global curr_state
         global cust_order
         global impact_per_normal
         global impacted_stock_price
-
         print(impacted_stock_price)
-
-        if not first_order:
-            curr_state = next_state(curr_state, states, transition_matrix)
-            impact_per_normal = get_impact(curr_state)
-        else:
-            first_order = not first_order
 
         structures = ["combos", "calls", "puts", "risk reversal", "call spread", "puts spread"]
         structure = np.random.choice(structures, p = [0.3, 0.2, 0.2, 0.2, 0.05, 0.05])
@@ -381,13 +372,18 @@ if __name__ == "__main__":
             cust_order["strike"] = mid_strikes
             cust_order["puts_over"] = True
 
-        cust_order["volume"] = normal_order_size * random.choice([0.5, 1, 1.5])
+        cust_order["volume"] = normal_order_size * random.choice([0.5, 1, 1.5]) 
+        cust_order["volume"] = round(cust_order["volume"] / 50) * 50
         check_label["text"] = "Can I get a market for {} of the {} {}".format(cust_order["volume"], cust_order["strike"], cust_order["structure"])
         upwards = curr_state == "lu" or curr_state == "hu" or (curr_state == "eq" and random.choice([True, False]))
 
         # takes volume and converts to equivalent deltas of volume
-        if cust_order["structure"] == "combos" or cust_order["structure"] == "calls" or cust_order["structure"] == "puts":
+        if cust_order["structure"] == "combos":
             deltas_volume = cust_order["volume"]
+        elif cust_order["structure"] == "calls":
+            deltas_volume = cust_order["volume"] * (1 - abs(theo_puts_delta[0]))
+        elif cust_order["structure"] == "puts":
+            deltas_volume = cust_order["volume"] * (1 - abs(theo_calls_delta[-1]))
         elif cust_order["structure"] == "risk reversal":
             i = strikes.index(cust_order["strike"][0])
             j = strikes.index(cust_order["strike"][1])
