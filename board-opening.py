@@ -106,7 +106,7 @@ if __name__ == "__main__":
         [0.1 / 3, 0.1 / 3, 0.1 / 3, 0.2, 0.7]]
     curr_state = "eq"
     # curr_state = np.random.choice(states, p = initial_prob_vector)
-    curr_stock_liquidity = random.choice(["l", "m", "h"])
+    curr_stock_liquidity = "l"
     
     impact_per_normal = get_impact(curr_state)
     normal_order_size = get_normal_order_size()
@@ -274,49 +274,50 @@ if __name__ == "__main__":
         bid_entry.pack_forget()
         offer_entry.pack_forget()
         submit_market_button.pack_forget()
-        willingness = random.randint(-impact_per_normal // 2, impact_per_normal // 2) / 100
+        willingness = max(impact_per_normal, 2) / 100
 
         if cust_order["structure"] == "combos" and not cust_order["puts_over"]:
-            cust_order["level"] = round(impacted_stock_price + willingness - cust_order["strike"] + rc, 2)
+            cust_order["level"] = round(impacted_stock_price - cust_order["strike"] + rc, 2)
         elif cust_order["structure"] == "combos":
-            cust_order["level"] = - round(impacted_stock_price + willingness - cust_order["strike"] + rc, 2)
+            cust_order["level"] = - round(impacted_stock_price - cust_order["strike"] + rc, 2)
         elif cust_order["structure"] == "calls":
             bw = theo_puts[0] + theo_puts_delta[0] * (impacted_stock_price - ref_initial_stock) + rc
-            cust_order["level"] = round(impacted_stock_price + willingness - cust_order["strike"] + bw, 2)
+            cust_order["level"] = round(impacted_stock_price - cust_order["strike"] + bw, 2)
         elif cust_order["structure"] == "puts":
             ps = theo_calls[-1] + theo_calls_delta[-1] * (impacted_stock_price - ref_initial_stock) - rc
-            cust_order["level"] = round(- impacted_stock_price + willingness + cust_order["strike"] + ps, 2)
+            cust_order["level"] = round(- impacted_stock_price + cust_order["strike"] + ps, 2)
         elif cust_order["structure"] == "risk reversal" and not cust_order["puts_over"]:
             combo_temp = round(impacted_stock_price - cust_order["strike"][0] + rc, 2)
             i = strikes.index(cust_order["strike"][0])
             j = strikes.index(cust_order["strike"][1])
             cs_temp = theo_calls[i] - theo_calls[j]
             cs_temp += (impacted_stock_price - ref_initial_stock) * (theo_calls_delta[i] - theo_calls_delta[j])
-            cust_order["level"] = round(combo_temp - cs_temp + willingness, 2)
+            cust_order["level"] = round(combo_temp - cs_temp, 2)
         elif cust_order["structure"] == "risk reversal" and cust_order["puts_over"]:
             combo_temp = round(impacted_stock_price - cust_order["strike"][0] + rc, 2)
             i = strikes.index(cust_order["strike"][0])
             j = strikes.index(cust_order["strike"][1])
             cs_temp = theo_calls[i] - theo_calls[j]
             cs_temp += (impacted_stock_price - ref_initial_stock) * (theo_calls_delta[i] - theo_calls_delta[j])
-            cust_order["level"] = round(cs_temp - combo_temp + willingness, 2)
+            cust_order["level"] = round(cs_temp - combo_temp, 2)
         elif cust_order["structure"] == "call spread":
             i = strikes.index(cust_order["strike"][0])
             j = strikes.index(cust_order["strike"][1])
             cs_temp = theo_calls[i] - theo_calls[j]
             cs_temp += (impacted_stock_price - ref_initial_stock) * (theo_calls_delta[i] - theo_calls_delta[j])
-            cust_order["level"] = round(cs_temp + willingness, 2)
+            cust_order["level"] = round(cs_temp, 2)
         elif cust_order["structure"] == "put spread":
             i = strikes.index(cust_order["strike"][0])
             j = strikes.index(cust_order["strike"][1])
             ps_temp = theo_puts[j] - theo_puts[i]
             ps_temp += (impacted_stock_price - ref_initial_stock) * (theo_calls_delta[j] - theo_calls_delta[i])
-            cust_order["level"] = round(ps_temp + willingness, 2)
+            cust_order["level"] = round(ps_temp, 2)
 
         print(market)
         print(cust_order)
 
         if cust_order["direction"] == "bid":
+            cust_order["level"] += willingness
             if cust_order["level"] >= market[1]:
                 check_label["text"] = "Customer lifts your offer"
                 execute_order_button.pack(side=tk.LEFT)
@@ -325,6 +326,7 @@ if __name__ == "__main__":
                 pass_order_button.pack(side=tk.LEFT)
                 execute_order_button.pack(side=tk.LEFT)
         if cust_order["direction"] == "offer":
+            cust_order["level"] -= willingness
             if cust_order["level"] <= market[0]:
                 check_label["text"] = "Customer hits your bid"
                 execute_order_button.pack(side=tk.LEFT)
@@ -343,7 +345,7 @@ if __name__ == "__main__":
         print(impacted_stock_price)
 
         structures = ["combos", "calls", "puts", "risk reversal", "call spread", "put spread"]
-        structure = np.random.choice(structures, p = [0, 0, 0, 1/3, 1/3, 1/3])
+        structure = np.random.choice(structures, p = [1/5, 1/5, 1/5, 1/5, 1/10, 1/10])
         if structure == "calls":
             cust_order["structure"] = "calls"
             cust_order["strike"] = strikes[0]
