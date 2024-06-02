@@ -4,6 +4,8 @@ import math
 import random
 import tkinter as tk
 import numpy as np
+import pyttsx3
+import threading
 
 def black_scholes(S, K, T, r, sigma, option='call'):
     d1 = (math.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * math.sqrt(T))
@@ -85,6 +87,9 @@ def amount_on_higher_levels(curr_stock_liquidity, diff_1, diff_2):
         return sum(liquidity_top_to_bottom[-int(diff_1):])
 
 if __name__ == "__main__":
+    speech = pyttsx3.init()
+    with_text = False
+
     # Section 1: Parameter deciding
     stock_price = random.randint(5000, 8000) / 100
     ref_initial_stock = stock_price
@@ -120,7 +125,7 @@ if __name__ == "__main__":
     strikes = [5 * i for i in range(mid_strike_index - 2, mid_strike_index + 3)]
     dte = 30 / 365
     r = math.log(1 - rc/strikes[2]) / -dte
-    sigma = random.randint(35,45) / 100
+    sigma = random.randint(35,65) / 100
 
     theo_calls = []
     theo_puts = []
@@ -318,22 +323,38 @@ if __name__ == "__main__":
 
         if cust_order["direction"] == "bid":
             cust_order["level"] += willingness
+            cust_order["level"] = round(cust_order["level"], 2)
             if cust_order["level"] >= market[1]:
-                check_label["text"] = "Customer lifts your offer"
+                if with_text:
+                    check_label["text"] = "Customer lifts your offer"
+                else:
+                    speech.say("Customer lifts your offer")
                 execute_order_button.pack(side=tk.LEFT)
             else:
-                check_label["text"] = "Customer is bid {}".format(cust_order["level"])
+                if with_text:
+                    check_label["text"] = "Customer is bid {}".format(cust_order["level"])
+                else:
+                    speech.say("Customer is bid {}".format(cust_order["level"]))
                 pass_order_button.pack(side=tk.LEFT)
                 execute_order_button.pack(side=tk.LEFT)
         if cust_order["direction"] == "offer":
             cust_order["level"] -= willingness
+            cust_order["level"] = round(cust_order["level"], 2)
             if cust_order["level"] <= market[0]:
-                check_label["text"] = "Customer hits your bid"
+                if with_text:
+                    check_label["text"] = "Customer hits your bid"
+                else:
+                    speech.say("Customer hits your bid")
                 execute_order_button.pack(side=tk.LEFT)
             else:
-                check_label["text"] = "Customer is offered {}".format(cust_order["level"])
+                if with_text:
+                    check_label["text"] = "Customer is offered {}".format(cust_order["level"])
+                else:
+                    speech.say("Customer is offered {}".format(cust_order["level"]))
                 pass_order_button.pack(side=tk.LEFT)
                 execute_order_button.pack(side=tk.LEFT)
+        
+        threading.Thread(target=speech.runAndWait).start()
 
     submit_market_button = tk.Button(text="Submit Market", master=incoming_order_frame, command=submit_market)
 
@@ -377,7 +398,11 @@ if __name__ == "__main__":
 
         cust_order["volume"] = normal_order_size * random.choice([0.5, 1, 1.5]) 
         cust_order["volume"] = round(cust_order["volume"] / 50) * 50
-        check_label["text"] = "Can I get a market for {} of the {} {}".format(cust_order["volume"], cust_order["strike"], cust_order["structure"])
+        if with_text:
+            check_label["text"] = "Can I get a market for {} of the {} {}".format(cust_order["volume"], cust_order["strike"], cust_order["structure"])
+        else:
+            speech.say("Can I get a market for {} of the {} {}".format(cust_order["volume"], cust_order["strike"], cust_order["structure"]))
+
         upwards = curr_state == "lu" or curr_state == "hu" or (curr_state == "eq" and random.choice([True, False]))
 
         # takes volume and converts to equivalent deltas of volume
@@ -419,6 +444,8 @@ if __name__ == "__main__":
         offer_entry.pack(side=tk.LEFT)
         submit_market_button.pack(side=tk.LEFT)
         new_order_button.pack_forget()
+
+        threading.Thread(target=speech.runAndWait).start()
 
     new_order_button = tk.Button(text="New Order", master=incoming_order_frame, command=new_order)    
 
