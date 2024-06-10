@@ -331,18 +331,43 @@ if __name__ == "__main__":
                 put_spread = theo_puts[2] - theo_puts[1]
                 cust_order["level"] = atf_puts - put_spread
             if i == 2:
-
+                cust_order["level"] = atf_puts
             if i == 3:
+                put_spread = theo_puts[3] - theo_puts[2]
+                cust_order["level"] = atf_puts + put_spread
 
         elif cust_order["structure"] == "calls":
+            combo = impacted_stock_price - strikes[2] + rc
+            atf_calls = (impacted_straddle + combo) / 2
             i = strikes.index(cust_order["strike"])
-
+            if i == 1:
+                call_spread = theo_calls[1] - theo_calls[2]
+                cust_order["level"] = atf_calls + call_spread
+            if i == 2:
+                cust_order["level"] = atf_calls
+            if i == 3:
+                call_spread = theo_calls[2] - theo_calls[3]
+                cust_order["level"] = atf_calls - call_spread
         elif cust_order["structure"] == "straddle":
             i = strikes.index(cust_order["strike"])
+            if i == 1:
+                straddle_swap = theo_calls[1] + theo_puts[1] - theo_calls[2] - theo_puts[2]
+                cust_order["level"] = impacted_straddle + straddle_swap
+            if i == 2:
+                cust_order["level"] = impacted_straddle
+            if i == 3:
+                straddle_swap = theo_calls[3] + theo_puts[3] - theo_calls[2] - theo_puts[2]
+                cust_order["level"] = impacted_straddle + straddle_swap
         elif cust_order["structure"] == "strangle":
             i = strikes.index(cust_order["strike"][0])
             j = strikes.index(cust_order["strike"][1])
-
+            if i > j:
+                temp = j
+                j = i
+                i = temp
+            straddle_change = impacted_straddle - initial_straddle
+            prev_strangle = theo_puts[i] + theo_calls[j]
+            cust_order["level"] = straddle_change + prev_strangle
 
         print(market)
         print(cust_order)
