@@ -88,7 +88,7 @@ def amount_on_higher_levels(curr_stock_liquidity, diff_1, diff_2):
 
 if __name__ == "__main__":
     speech = pyttsx3.init()
-    with_text = False
+    with_text = True
 
     # Section 1: Parameter deciding
     stock_price = random.randint(5000, 8000) / 100
@@ -150,6 +150,12 @@ if __name__ == "__main__":
             opening_info.append((struc, round(theo_puts[i + 1] - theo_puts[i], 2)))
         elif struc == "straddle":
             opening_info.append((struc, round(theo_calls[i] + theo_puts[i], 2)))
+            # Section 3: determining vol parameters
+            initial_straddle = round(theo_calls[i] + theo_puts[i], 2)
+            impacted_straddle = initial_straddle
+            curr_vol_state = np.random.choice(states, p = initial_prob_vector)
+            straddle_impact_per_normal = get_impact(curr_vol_state)
+
 
     # opening the actual board (displaying)
     window = tk.Tk()
@@ -283,9 +289,9 @@ if __name__ == "__main__":
 
         if cust_order["structure"] == "combos" and not cust_order["puts_over"]:
             cust_order["level"] = round(impacted_stock_price - cust_order["strike"] + rc, 2)
-        elif cust_order["structure"] == "combos":
+        elif cust_order["structure"] == "combos" and not cust_order["bets_vol"]:
             cust_order["level"] = - round(impacted_stock_price - cust_order["strike"] + rc, 2)
-        elif cust_order["structure"] == "calls":
+        elif cust_order["structure"] == "calls" and not cust_order["bets_vol"]:
             bw = theo_puts[0] + theo_puts_delta[0] * (impacted_stock_price - ref_initial_stock) + rc
             cust_order["level"] = round(impacted_stock_price - cust_order["strike"] + bw, 2)
         elif cust_order["structure"] == "puts":
@@ -317,6 +323,26 @@ if __name__ == "__main__":
             ps_temp = theo_puts[j] - theo_puts[i]
             ps_temp += (impacted_stock_price - ref_initial_stock) * (theo_calls_delta[j] - theo_calls_delta[i])
             cust_order["level"] = round(ps_temp, 2)
+        elif cust_order["structure"] == "puts":
+            combo = impacted_stock_price - strikes[2] + rc
+            atf_puts = (impacted_straddle - combo) / 2
+            i = strikes.index(cust_order["strike"])
+            if i == 1:
+                put_spread = theo_puts[2] - theo_puts[1]
+                cust_order["level"] = atf_puts - put_spread
+            if i == 2:
+
+            if i == 3:
+
+        elif cust_order["structure"] == "calls":
+            i = strikes.index(cust_order["strike"])
+
+        elif cust_order["structure"] == "straddle":
+            i = strikes.index(cust_order["strike"])
+        elif cust_order["structure"] == "strangle":
+            i = strikes.index(cust_order["strike"][0])
+            j = strikes.index(cust_order["strike"][1])
+
 
         print(market)
         print(cust_order)
@@ -360,18 +386,29 @@ if __name__ == "__main__":
 
     def new_order():
         global curr_state
+        global curr_vol_state
         global cust_order
         global impact_per_normal
+        global straddle_impact_per_normal
         global impacted_stock_price
+        global impacted_straddle
         print(impacted_stock_price)
+        print(impacted_straddle)
+        
+        vol_order = random.choice([True, False])
+        cust_order["bets_vol"] = vol_order
 
-        structures = ["combos", "calls", "puts", "risk reversal", "call spread", "put spread"]
-        structure = np.random.choice(structures, p = [1/5, 1/5, 1/5, 1/5, 1/10, 1/10])
-        if structure == "calls":
+        if vol_order:
+            structures = ["calls", "puts", "straddle", "strangle"]
+        else:
+            structures = ["combos", "calls", "puts", "risk reversal", "call spread", "put spread"]
+            structure = np.random.choice(structures, p = [1/5, 1/5, 1/5, 1/5, 1/10, 1/10])
+
+        if structure == "calls" and not vol_order:
             cust_order["structure"] = "calls"
             cust_order["strike"] = strikes[0]
             cust_order["puts_over"] = False
-        elif structure == "puts":
+        elif structure == "puts" and not vol_order:
             cust_order["structure"] = "puts"
             cust_order["strike"] = strikes[-1]
             cust_order["puts_over"] = True
@@ -395,6 +432,23 @@ if __name__ == "__main__":
             mid_strikes, mid_strike_indices = get_middle_strike_with_indices(strikes)
             cust_order["strike"] = mid_strikes
             cust_order["puts_over"] = True
+        elif structure == "calls" and vol_order:
+            cust_order["structure"] = "calls"
+            cust_order["strike"] = random.choice(strikes[1:4])
+            cust_order["puts_over"] = False
+        elif structure == "puts" and vol_order:
+            cust_order["structure"] = "puts"
+            cust_order["strike"] = random.choice(strikes[1:4])
+            cust_order["puts_over"] = True
+        elif structure == "straddle":
+            cust_order["structure"] = "straddle"
+            cust_order["strike"] = random.choice(strikes[1:4])
+            cust_order["puts_over"] = False
+        elif structure == "strangle":
+            cust_order["structure"] = "strangle"
+            mid_strikes, mid_strike_indices = get_middle_strike_with_indices(strikes)
+            cust_order["strike"] = mid_strikes
+            cust_order["puts_over"] = False
 
         cust_order["volume"] = normal_order_size * random.choice([0.5, 1, 1.5]) 
         cust_order["volume"] = round(cust_order["volume"] / 50) * 50
@@ -408,9 +462,9 @@ if __name__ == "__main__":
         # takes volume and converts to equivalent deltas of volume
         if cust_order["structure"] == "combos":
             deltas_volume = cust_order["volume"]
-        elif cust_order["structure"] == "calls":
+        elif cust_order["structure"] == "calls" and not vol_order:
             deltas_volume = cust_order["volume"] * (1 - abs(theo_puts_delta[0]))
-        elif cust_order["structure"] == "puts":
+        elif cust_order["structure"] == "puts" and not vol_order:
             deltas_volume = cust_order["volume"] * (1 - abs(theo_calls_delta[-1]))
         elif cust_order["structure"] == "risk reversal":
             i = strikes.index(cust_order["strike"][0])
@@ -424,20 +478,30 @@ if __name__ == "__main__":
             i = strikes.index(cust_order["strike"][0])
             j = strikes.index(cust_order["strike"][1])
             deltas_volume = cust_order["volume"] * (abs(theo_puts_delta[i] - theo_puts_delta[j]))
-        else:
-            print(cust_order["structure"])
+        elif vol_order and (cust_order["structure"] == "calls" or cust_order["structure"] == "puts"):
+            vega_volume = cust_order["volume"]
+        elif vol_order and (cust_order["structure"] == "strangle" or cust_order["structure"] == "straddle"):
+            vega_volume = cust_order["volume"] * 2
 
-        if upwards:
-            impacted_stock_price += (impact_per_normal / 100) * (deltas_volume / normal_order_size)
-            if cust_order["puts_over"]:
-                cust_order["direction"] = "offer"
+        if not vol_order:
+            if upwards:
+                impacted_stock_price += (impact_per_normal / 100) * (deltas_volume / normal_order_size)
+                if cust_order["puts_over"]:
+                    cust_order["direction"] = "offer"
+                else:
+                    cust_order["direction"] = "bid"
             else:
-                cust_order["direction"] = "bid"
-        else:
-            impacted_stock_price -= (impact_per_normal / 100) * (deltas_volume / normal_order_size) 
-            if cust_order["puts_over"]:
+                impacted_stock_price -= (impact_per_normal / 100) * (deltas_volume / normal_order_size) 
+                if cust_order["puts_over"]:
+                    cust_order["direction"] = "bid"
+                else:
+                    cust_order["direction"] = "offer"
+        if vol_order:
+            if upwards:
+                impacted_straddle += (straddle_impact_per_normal / 100) * (vega_volume / normal_order_size)
                 cust_order["direction"] = "bid"
             else:
+                impacted_straddle -= (straddle_impact_per_normal / 100) * (vega_volume / normal_order_size) 
                 cust_order["direction"] = "offer"
 
         bid_entry.pack(side=tk.LEFT)
