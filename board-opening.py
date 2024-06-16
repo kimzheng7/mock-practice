@@ -294,7 +294,7 @@ if __name__ == "__main__":
         elif cust_order["structure"] == "calls" and not cust_order["bets_vol"]:
             bw = theo_puts[0] + theo_puts_delta[0] * (impacted_stock_price - ref_initial_stock) + rc
             cust_order["level"] = round(impacted_stock_price - cust_order["strike"] + bw, 2)
-        elif cust_order["structure"] == "puts":
+        elif cust_order["structure"] == "puts" and not cust_order["bets_vol"]:
             ps = theo_calls[-1] + theo_calls_delta[-1] * (impacted_stock_price - ref_initial_stock) - rc
             cust_order["level"] = round(- impacted_stock_price + cust_order["strike"] + ps, 2)
         elif cust_order["structure"] == "risk reversal" and not cust_order["puts_over"]:
@@ -425,6 +425,7 @@ if __name__ == "__main__":
 
         if vol_order:
             structures = ["calls", "puts", "straddle", "strangle"]
+            structure = random.choice(structures)
         else:
             structures = ["combos", "calls", "puts", "risk reversal", "call spread", "put spread"]
             structure = np.random.choice(structures, p = [1/5, 1/5, 1/5, 1/5, 1/10, 1/10])
