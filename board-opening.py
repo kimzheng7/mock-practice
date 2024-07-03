@@ -167,11 +167,9 @@ if __name__ == "__main__":
     rc_text.pack()
     call_theo_texts = []
     put_theo_texts = []
-    starting_info_texts_l = []
-    starting_info_texts_r = []
+    starting_info_texts = []
 
     theos_showing = False
-    starting_info_showing = False
 
     def click_handler_l(struc, price, e):
         empty = e.widget["text"] == ""
@@ -212,10 +210,10 @@ if __name__ == "__main__":
         put_bid_entry = tk.Entry(master=strike_frame, width=5)
         put_theo_text = tk.Label(text="", master=strike_frame, width=5)
         put_offer_entry = tk.Entry(master=strike_frame, width=5)
-        given_info_l = tk.Label(master=strike_frame, text="", width=12)
-        given_info_r = tk.Label(master=strike_frame, text="", width=12)
+        given_info = tk.Label(master=strike_frame, text="", width=12)
+        given_info["text"] = "{}: {}".format(struc, price)
 
-        given_info_l.pack(side=tk.LEFT)
+        given_info.pack(side=tk.LEFT)
         call_bid_entry.pack(side=tk.LEFT)
         call_theo_text.pack(side=tk.LEFT)
         call_offer_entry.pack(side=tk.LEFT)
@@ -223,17 +221,10 @@ if __name__ == "__main__":
         put_bid_entry.pack(side=tk.LEFT)
         put_theo_text.pack(side=tk.LEFT)
         put_offer_entry.pack(side=tk.LEFT)
-        given_info_r.pack(side=tk.LEFT)
 
         call_theo_texts.append(call_theo_text)
         put_theo_texts.append(put_theo_text)
-        starting_info_texts_l.append(given_info_l)
-        starting_info_texts_r.append(given_info_r)
-
-        if (struc == "p&s" or struc == "straddle" or struc == "cs"):
-            given_info_l["text"] = "{}: {}".format(struc, price)
-        else:
-            given_info_r["text"] = "{}: {}".format(struc, price)
+        starting_info_texts.append(given_info)
 
         given_info_l.bind("<Button-1>", partial(click_handler_l, struc, price))
         given_info_r.bind("<Button-1>", partial(click_handler_r, struc, price))
