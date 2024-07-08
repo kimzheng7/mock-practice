@@ -24,6 +24,13 @@ def black_scholes_delta(S, K, T, r, sigma, option="call"):
         delta_calc = -norm.cdf(-d1, 0, 1)
     return delta_calc
 
+def black_scholes_vega(S, K, T, r, sigma, option="call"):
+    d1 = (math.log(S/K) + (r + sigma**2/2)*T) / (sigma*np.sqrt(T))
+    d2 = d1 - sigma*np.sqrt(T)
+
+    vega_calc = S * norm.pdf(d1, 0, 1) * np.sqrt(T)
+    return vega_calc * 0.01
+
 def get_middle_strike_with_indices(strikes):
     strike_indices = list(sorted(np.random.choice([1, 2, 3], 2, replace = False)))
     return (strikes[strike_indices[0]], strikes[strike_indices[1]]), strike_indices
@@ -131,11 +138,13 @@ if __name__ == "__main__":
     theo_puts = []
     theo_calls_delta = []
     theo_puts_delta = []
+    theo_vegas = []
     for strike in strikes:
         theo_calls.append(round(black_scholes(stock_price, strike, dte, r, sigma, option = "call"), 2))
         theo_puts.append(round(black_scholes(stock_price, strike, dte, r, sigma, option = "put"), 2))
         theo_calls_delta.append(round(black_scholes_delta(stock_price, strike, dte, r, sigma, option = "call"), 2))
         theo_puts_delta.append(round(black_scholes_delta(stock_price, strike, dte, r, sigma, option = "put"), 2))
+        theo_vegas.append(round(black_scholes_vega(stock_price, strike, dte, r, sigma), 2))
 
     opening_info = []
     structures = ["b/w", "ps", "straddle", "cs", "p&s"]
@@ -155,7 +164,7 @@ if __name__ == "__main__":
             impacted_straddle = initial_straddle
             curr_vol_state = np.random.choice(states, p = initial_prob_vector)
             straddle_impact_per_normal = get_impact(curr_vol_state)
-
+    random.shuffle(opening_info)
 
     # opening the actual board (displaying)
     window = tk.Tk()
@@ -171,16 +180,9 @@ if __name__ == "__main__":
 
     theos_showing = False
 
-    def click_handler_l(struc, price, e):
+    def click_handler(struc, price, e):
         empty = e.widget["text"] == ""
-        if empty and (struc == "p&s" or struc == "straddle" or struc == "cs"):
-            e.widget["text"] = "{}: {}".format(struc, price)
-        elif not empty:
-            e.widget["text"] = ""
-
-    def click_handler_r(struc, price, e):
-        empty = e.widget["text"] == ""
-        if empty and (struc == "b/w" or struc == "ps"):
+        if empty:
             e.widget["text"] = "{}: {}".format(struc, price)
         elif not empty:
             e.widget["text"] = ""
@@ -198,7 +200,7 @@ if __name__ == "__main__":
 
     theos_button = tk.Button(text="Show theos", command=show_theos)
 
-    for strike, info in zip(strikes, opening_info):
+    for strike, info, vega in zip(strikes, opening_info, theo_vegas):
         struc, price = info
         strike_frame = tk.Frame()
         strike_frame.pack(pady=5)
@@ -211,9 +213,13 @@ if __name__ == "__main__":
         put_theo_text = tk.Label(text="", master=strike_frame, width=5)
         put_offer_entry = tk.Entry(master=strike_frame, width=5)
         given_info = tk.Label(master=strike_frame, text="", width=12)
+        vegas = tk.Label(master=strike_frame, text="", width=5)
+
         given_info["text"] = "{}: {}".format(struc, price)
+        vegas["text"] = vega
 
         given_info.pack(side=tk.LEFT)
+        vegas.pack(side=tk.LEFT)
         call_bid_entry.pack(side=tk.LEFT)
         call_theo_text.pack(side=tk.LEFT)
         call_offer_entry.pack(side=tk.LEFT)
@@ -226,9 +232,7 @@ if __name__ == "__main__":
         put_theo_texts.append(put_theo_text)
         starting_info_texts.append(given_info)
 
-        given_info_l.bind("<Button-1>", partial(click_handler_l, struc, price))
-        given_info_r.bind("<Button-1>", partial(click_handler_r, struc, price))
-
+        given_info.bind("<Button-1>", partial(click_handler, struc, price))
 
     theos_button.pack()
 
@@ -412,6 +416,7 @@ if __name__ == "__main__":
         print(impacted_straddle)
         
         vol_order = random.choice([True, False])
+        market_order = random.choice([True, False])
         cust_order["bets_vol"] = vol_order
 
         if vol_order:
@@ -469,11 +474,6 @@ if __name__ == "__main__":
 
         cust_order["volume"] = normal_order_size * random.choice([0.5, 1, 1.5]) 
         cust_order["volume"] = round(cust_order["volume"] / 50) * 50
-        if with_text:
-            check_label["text"] = "Can I get a market for {} of the {} {}".format(cust_order["volume"], cust_order["strike"], cust_order["structure"])
-        else:
-            speech.say("Can I get a market for {} of the {} {}".format(cust_order["volume"], cust_order["strike"], cust_order["structure"]))
-
         upwards = curr_state == "lu" or curr_state == "hu" or (curr_state == "eq" and random.choice([True, False]))
 
         # takes volume and converts to equivalent deltas of volume
@@ -520,6 +520,14 @@ if __name__ == "__main__":
             else:
                 impacted_straddle -= (straddle_impact_per_normal / 100) * (vega_volume / normal_order_size) 
                 cust_order["direction"] = "offer"
+
+        if market_order:
+            return
+            
+        if with_text:
+            check_label["text"] = "Can I get a market for {} of the {} {}".format(cust_order["volume"], cust_order["strike"], cust_order["structure"])
+        else:
+            speech.say("Can I get a market for {} of the {} {}".format(cust_order["volume"], cust_order["strike"], cust_order["structure"]))
 
         bid_entry.pack(side=tk.LEFT)
         offer_entry.pack(side=tk.LEFT)
