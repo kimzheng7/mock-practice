@@ -164,7 +164,6 @@ if __name__ == "__main__":
             impacted_straddle = initial_straddle
             curr_vol_state = np.random.choice(states, p = initial_prob_vector)
             straddle_impact_per_normal = get_impact(curr_vol_state)
-    random.shuffle(opening_info)
 
     # opening the actual board (displaying)
     window = tk.Tk()
@@ -176,13 +175,21 @@ if __name__ == "__main__":
     rc_text.pack()
     call_theo_texts = []
     put_theo_texts = []
-    starting_info_texts = []
+    starting_info_texts_l = []
+    starting_info_texts_r = []
 
     theos_showing = False
 
-    def click_handler(struc, price, e):
+    def click_handler_l(struc, price, e):
         empty = e.widget["text"] == ""
-        if empty:
+        if empty and (struc == "p&s" or struc == "straddle" or struc == "cs"):
+            e.widget["text"] = "{}: {}".format(struc, price)
+        elif not empty:
+            e.widget["text"] = ""
+
+    def click_handler_r(struc, price, e):
+        empty = e.widget["text"] == ""
+        if empty and (struc == "b/w" or struc == "ps"):
             e.widget["text"] = "{}: {}".format(struc, price)
         elif not empty:
             e.widget["text"] = ""
@@ -212,13 +219,11 @@ if __name__ == "__main__":
         put_bid_entry = tk.Entry(master=strike_frame, width=5)
         put_theo_text = tk.Label(text="", master=strike_frame, width=5)
         put_offer_entry = tk.Entry(master=strike_frame, width=5)
-        given_info = tk.Label(master=strike_frame, text="", width=12)
+        given_info_l = tk.Label(master=strike_frame, text="", width=12)
+        givne_info_r = tk.Label(master=strike_frame, text="", width=12)
         vegas = tk.Label(master=strike_frame, text="", width=5)
 
-        given_info["text"] = "{}: {}".format(struc, price)
-        vegas["text"] = vega
-
-        given_info.pack(side=tk.LEFT)
+        given_info_l.pack(side=tk.LEFT)
         vegas.pack(side=tk.LEFT)
         call_bid_entry.pack(side=tk.LEFT)
         call_theo_text.pack(side=tk.LEFT)
@@ -227,12 +232,21 @@ if __name__ == "__main__":
         put_bid_entry.pack(side=tk.LEFT)
         put_theo_text.pack(side=tk.LEFT)
         put_offer_entry.pack(side=tk.LEFT)
+        given_info_r.pack(side=tk.LEFT)
 
         call_theo_texts.append(call_theo_text)
         put_theo_texts.append(put_theo_text)
-        starting_info_texts.append(given_info)
+        starting_info_texts_l.append(given_info_l)
+        starting_info_texts_r.append(given_info_r)
 
-        given_info.bind("<Button-1>", partial(click_handler, struc, price))
+        given_info_l.bind("<Button-1>", partial(click_handler_l, struc, price))
+        given_info_r.bind("<Button-1>", partial(click_handler_r, struc, price))
+
+        vegas["text"] = vega
+        if (struc == "b/w" or struc == "ps"):
+            given_info_r["text"] = "{}: {}".format(struc, price)
+        elif (struc == "p&s" or struc == "straddle" or struc == "cs"):
+            given_info_l["text"] = "{}: {}".format(struc, price)
 
     theos_button.pack()
 
