@@ -62,6 +62,17 @@ def get_impact(curr_state):
     
     return impact
 
+def get_straddle_impact(curr_state):
+    if curr_state == "eq":
+        impact = random.randint(0, 5)
+    if curr_state == "lu" or curr_state == "ld":
+        impact = random.randint(5, 12)
+    if curr_state == "hu" or curr_state == "hd":
+        impact = random.randint(12, 20)
+    
+    return impact
+
+
 def get_liquidity(curr_stock_liquidity):
     if curr_stock_liquidity == "l":
         volume = random.randint(5, 10) * 20
@@ -163,7 +174,7 @@ if __name__ == "__main__":
             initial_straddle = round(theo_calls[i] + theo_puts[i], 2)
             impacted_straddle = initial_straddle
             curr_vol_state = np.random.choice(states, p = initial_prob_vector)
-            straddle_impact_per_normal = get_impact(curr_vol_state)
+            straddle_impact_per_normal = get_straddle_impact(curr_vol_state)
 
     # opening the actual board (displaying)
     window = tk.Tk()
@@ -220,7 +231,7 @@ if __name__ == "__main__":
         put_theo_text = tk.Label(text="", master=strike_frame, width=5)
         put_offer_entry = tk.Entry(master=strike_frame, width=5)
         given_info_l = tk.Label(master=strike_frame, text="", width=12)
-        givne_info_r = tk.Label(master=strike_frame, text="", width=12)
+        given_info_r = tk.Label(master=strike_frame, text="", width=12)
         vegas = tk.Label(master=strike_frame, text="", width=5)
 
         given_info_l.pack(side=tk.LEFT)
@@ -287,7 +298,9 @@ if __name__ == "__main__":
     def submit_market():
         global cust_order
         
-        market = [float(bid_entry.get()), float(offer_entry.get())]
+        if not cust_order["market_order"]:
+            market = [float(bid_entry.get()), float(offer_entry.get())]
+            print(market)
         bid_entry.delete(0, tk.END)
         offer_entry.delete(0, tk.END)
 
@@ -378,13 +391,16 @@ if __name__ == "__main__":
             prev_strangle = theo_puts[i] + theo_calls[j]
             cust_order["level"] = straddle_change + prev_strangle
 
-        print(market)
         print(cust_order)
 
         if cust_order["direction"] == "bid":
             cust_order["level"] += willingness
             cust_order["level"] = round(cust_order["level"], 2)
-            if cust_order["level"] >= market[1]:
+            if cust_order["market_order"]:
+                check_label["text"] = "Cust is bid {} for {} of the {} {}".format(cust_order["level"], cust_order["volume"], cust_order["strike"], cust_order["structure"])
+                pass_order_button.pack(side=tk.LEFT)
+                execute_order_button.pack(side=tk.LEFT)
+            elif cust_order["level"] >= market[1]:
                 if with_text:
                     check_label["text"] = "Customer lifts your offer"
                 else:
@@ -400,7 +416,11 @@ if __name__ == "__main__":
         if cust_order["direction"] == "offer":
             cust_order["level"] -= willingness
             cust_order["level"] = round(cust_order["level"], 2)
-            if cust_order["level"] <= market[0]:
+            if cust_order["market_order"]:
+                check_label["text"] = "Cust is offered {} for {} of the {} {}".format(cust_order["level"], cust_order["volume"], cust_order["strike"], cust_order["structure"])
+                pass_order_button.pack(side=tk.LEFT)
+                execute_order_button.pack(side=tk.LEFT)
+            elif cust_order["level"] <= market[0]:
                 if with_text:
                     check_label["text"] = "Customer hits your bid"
                 else:
@@ -432,10 +452,11 @@ if __name__ == "__main__":
         vol_order = random.choice([True, False])
         market_order = random.choice([True, False])
         cust_order["bets_vol"] = vol_order
+        cust_order["market_order"] = market_order
 
         if vol_order:
             structures = ["calls", "puts", "straddle", "strangle"]
-            structure = random.choice(structures)
+            structure = np.random.choice(structures, p = [1/3, 1/3, 1/12, 3/12])
         else:
             structures = ["combos", "calls", "puts", "risk reversal", "call spread", "put spread"]
             structure = np.random.choice(structures, p = [1/5, 1/5, 1/5, 1/5, 1/10, 1/10])
@@ -536,6 +557,11 @@ if __name__ == "__main__":
                 cust_order["direction"] = "offer"
 
         if market_order:
+            bid_entry.pack(side=tk.LEFT)
+            offer_entry.pack(side=tk.LEFT)
+            submit_market_button.pack(side=tk.LEFT)
+            new_order_button.pack_forget()
+            submit_market()
             return
             
         if with_text:
